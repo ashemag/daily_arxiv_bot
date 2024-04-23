@@ -122,7 +122,8 @@ def driver():
 
         cnt += 1
         print(cnt)
-        system_prompt = """You are receiving a computer science arxiv paper summary and a list of links on the page. Distill the summary into concise 1-2 lines. Make the last line a comma separated list of keywords."""
+        system_prompt = """You are receiving a computer science arxiv paper summary and a list of links on the page. Distill the summary into concise 1-2 lines.
+        Add a new line with Keywords: and a comma separated list of keywords. Wrap that line in * * to bold."""
 
         summary_processed = call_openai(
             system_prompt=system_prompt,
