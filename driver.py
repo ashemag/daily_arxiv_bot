@@ -78,13 +78,19 @@ def get_possible_university_affiliations(url: str) -> List:
     if response.status_code == 200:
         soup = BeautifulSoup(response.text, "html.parser")
         spans = soup.find_all("span", class_="ltx_role_affiliation")
-        return sorted(list(set([span.get_text(strip=True) for span in spans])))
+        return sorted(
+            [
+                item
+                for item in list(set([span.get_text(strip=True) for span in spans]))
+                if item != ""
+            ]
+        )
 
     return []
 
 
 @stub.function(
-    schedule=modal.Cron("0 17 * * 1-5"),
+    schedule=modal.Cron("30 15 * * 1-5"),
     image=modal.Image.debian_slim().pip_install(
         [
             "slack-sdk",
@@ -143,7 +149,7 @@ def driver():
             )
         )
 
-    slack_client.chat_postMessage(channel="<PUT SLACK CHANNEL ID>", blocks=blocks)
+    slack_client.chat_postMessage(channel="<PUT CHANNEL ID HERE>", blocks=blocks)
 
 
 if __name__ == "__main__":
