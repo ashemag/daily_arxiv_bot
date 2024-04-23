@@ -16,6 +16,13 @@ stub = modal.Stub()
 slack_client = WebClient(token=os.environ["SLACK_API_BOT_KEY"])
 
 
+def format_human_readable(datetime_str: str) -> str:
+    dt = datetime.strptime(datetime_str, "%Y-%m-%d %H:%M:%S%z")
+    readable_format = dt.strftime("%B %d, %Y, %H:%M")
+
+    return readable_format
+
+
 def get_slack_channel_from_name(name: str):
     response = slack_client.conversations_list(types="public_channel,private_channel")
     if response["ok"]:
@@ -76,13 +83,22 @@ def get_possible_university_affiliations(url: str) -> List:
     return []
 
 
-# @stub.function(
-#     schedule=modal.Cron("0 17 * * 1-5"),
-#     image=modal.Image.debian_slim().pip_install(
-#         ["slack-sdk", "python-dotenv", "requests", "emoji"]
-#     ),
-#     secret=modal.Secret.from_name("hearth-operations-secrets"),
-# )
+@stub.function(
+    schedule=modal.Cron("0 17 * * 1-5"),
+    image=modal.Image.debian_slim().pip_install(
+        [
+            "slack-sdk",
+            "python-dotenv",
+            "requests",
+            "emoji",
+            "openai",
+            "arxiv",
+            "pytz",
+            "bs4",
+        ]
+    ),
+    secret=modal.Secret.from_name("hearth-operations-secrets"),
+)
 def driver():
     client = arxiv.Client()
 
@@ -106,7 +122,7 @@ def driver():
 
         cnt += 1
         print(cnt)
-        system_prompt = """You are receiving a computer science arxiv paper summary and a list of links on the page. Distill the summary into 1-2 lines."""
+        system_prompt = """You are receiving a computer science arxiv paper summary and a list of links on the page. Distill the summary into concise 1-2 lines. Make the last line a comma separated list of keywords."""
 
         summary_processed = call_openai(
             system_prompt=system_prompt,
@@ -119,14 +135,14 @@ def driver():
             if "stanford" in ", ".join(affiliations).lower()
             else ""
         )
+        published = format_human_readable(str(r.published))
         blocks.append(
             create_slack_block(
-                f"*{r.title}:*\n{r.published}\n{summary_processed}\nAffiliations: {', '.join(affiliations)}\n{stanford_included}{slack_link}"
+                f"*{r.title}:*\n{published}\n{summary_processed}\nAffiliations: {', '.join(affiliations)}\n{stanford_included}{slack_link}"
             )
         )
 
-    slack_client.chat_postMessage(channel="<PUT IN CHANNEL ID>", blocks=blocks)
-
+    slack_client.chat_postMessage(channel="<PUT SLACK CHANNEL ID>", blocks=blocks)
 
 
 if __name__ == "__main__":
