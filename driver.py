@@ -129,23 +129,33 @@ def driver():
         cnt += 1
         print(cnt)
         system_prompt = """You are receiving a computer science arxiv paper summary and a list of links on the page. Distill the summary into concise 1-2 lines.
-        Add a new line with Keywords: and a comma separated list of keywords. Wrap that line in * * to bold."""
+        Add a new line and then a line of Keywords: and a comma separated list of keywords. Wrap the keyword line in * to bold in slack. Only use * on each side.
+        For example,
+
+        *Keywords: cultural knowledge bases, CultureBank, language models, cultural awareness, TikTok, Reddit, scalable pipeline*
+        """
 
         summary_processed = call_openai(
             system_prompt=system_prompt,
             user_prompt=f"summary: {r.summary}\n",
         )
-        slack_link = create_slack_link("🔗 link", r.pdf_url)
+        slack_link = create_slack_link("🔗 Paper", r.pdf_url)
         authors = [author.name for author in r.authors]
         stanford_included = (
-            "🌲 Stanford affiliation detected\n"
+            "🌲 Stanford affiliation\n"
             if "stanford" in ", ".join(affiliations).lower()
             else ""
         )
         published = format_human_readable(str(r.published))
+        affiliations_str = (
+            f"\nAffiliations: {', '.join(affiliations)}"
+            if len(affiliations) > 0
+            else ""
+        )
+        summary_processed = summary_processed.replace("**", "*")
         blocks.append(
             create_slack_block(
-                f"*{r.title}:*\n{published}\n{summary_processed}\nAffiliations: {', '.join(affiliations)}\n{stanford_included}{slack_link}"
+                f"*{r.title}*\n_{published}_\n{summary_processed}{affiliations_str}\n{stanford_included}{slack_link}"
             )
         )
 
