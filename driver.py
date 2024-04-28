@@ -10,6 +10,7 @@ import requests
 from bs4 import BeautifulSoup
 from typing import List
 import modal
+import ast
 
 stub = modal.Stub()
 
@@ -89,6 +90,22 @@ def get_possible_university_affiliations(url: str) -> List:
     return []
 
 
+def get_paper_text(pdf_url: str) -> str:
+    if "pdf" not in pdf_url.lower():
+        return ""
+    import PyPDF2
+    import io
+
+    response = requests.get(pdf_url)
+    pdf_file = io.BytesIO(response.content)
+    reader = PyPDF2.PdfReader(pdf_file)
+    text = ""
+    for page in reader.pages:
+        text += page.extract_text()
+
+    return text
+
+
 @stub.function(
     schedule=modal.Cron("30 15 * * 1-5"),
     image=modal.Image.debian_slim().pip_install(
@@ -119,45 +136,43 @@ def driver():
     cnt = 0
     for r in client.results(search):
         url = r.links[0].href
-        url = r.links[0].href.replace("abs", "html")
-        affiliations = get_possible_university_affiliations(url)
+        paper_text = get_paper_text(url.replace("abs", "pdf"))
+        print(paper_text)
+        # url = r.links[0].href.replace("abs", "html")
+        # affiliations = get_possible_university_affiliations(url)
         if "cs" not in r.primary_category:
             continue
-        if not is_within_last_24_hours(str(r.published)):
-            continue
+        # if not is_within_last_24_hours(str(r.published)):
+        #     continue
 
         cnt += 1
         print(cnt)
-        system_prompt = """You are receiving a computer science arxiv paper summary and a list of links on the page. Distill the summary into concise 1-2 lines.
-        Add a new line and then a line of Keywords: and a comma separated list of keywords. Wrap the keyword line in * to bold in slack. Only use * on each side.
-        For example,
+        system_prompt = """You are receiving a computer science arxiv paper summary and its content. You are returning a python array with 3 entries, wrapped in [ ].
+        1. Distill the summary into concise 1-2 lines.
+        2. Return the university affiliations of authors from the paper content in user input. You can find this in the beginning before ABSTRACT
+        3. Return keywords
 
-        *Keywords: cultural knowledge bases, CultureBank, language models, cultural awareness, TikTok, Reddit, scalable pipeline*
+        example output:
+        ["The paper explores the challenges and techniques used by artificial agents in collectible card games like Hearthstone and Legends of Code and Magic, highlighting the limitations of current search methods due to vast state spaces and presenting analysis results of the ByteRL agent.", "collectible card games, Hearthstone, Legends of Code and Magic, artificial agents, imperfect information, ByteRL, state space, search methods", "Stanford University"]
         """
 
-        summary_processed = call_openai(
+        output = call_openai(
             system_prompt=system_prompt,
-            user_prompt=f"summary: {r.summary}\n",
+            user_prompt=f"summary: {r.summary}\n\n paper content: {str(paper_text)}",
         )
+        extracted_data = ast.literal_eval(output)
         slack_link = create_slack_link("🔗 Paper", r.pdf_url)
-        authors = [author.name for author in r.authors]
         stanford_included = (
-            "🌲 Stanford affiliation\n"
-            if "stanford" in ", ".join(affiliations).lower()
-            else ""
+            "🌲 Stanford" if "stanford" in extracted_data[1].lower() else ""
         )
         published = format_human_readable(str(r.published))
-        affiliations_str = (
-            f"\nAffiliations: {', '.join(affiliations)}"
-            if len(affiliations) > 0
-            else ""
-        )
-        summary_processed = summary_processed.replace("**", "*")
+
         blocks.append(
             create_slack_block(
-                f"*{r.title}*\n_{published}_\n{summary_processed}{affiliations_str}\n{stanford_included}{slack_link}"
+                f"*{r.title}*\n_{published}_\n{extracted_data[0]}\n*Keywords: {extracted_data[2]}*\nAffiliations: {extracted_data[1]}\n{stanford_included}\n{slack_link}"
             )
         )
+        break
 
     slack_client.chat_postMessage(channel="<PUT CHANNEL ID HERE>", blocks=blocks)
 
