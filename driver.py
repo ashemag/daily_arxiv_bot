@@ -118,6 +118,7 @@ def get_paper_text(pdf_url: str) -> str:
             "arxiv",
             "pytz",
             "bs4",
+            "PyPDF2",
         ]
     ),
     secret=modal.Secret.from_name("hearth-operations-secrets"),
