@@ -143,8 +143,8 @@ def driver():
         # affiliations = get_possible_university_affiliations(url)
         if "cs" not in r.primary_category:
             continue
-        # if not is_within_last_24_hours(str(r.published)):
-        #     continue
+        if not is_within_last_24_hours(str(r.published)):
+            continue
 
         cnt += 1
         print(cnt)
@@ -173,9 +173,8 @@ def driver():
                 f"*{r.title}*\n_{published}_\n{extracted_data[0]}\n*Keywords: {extracted_data[2]}*\nAffiliations: {extracted_data[1]}\n{stanford_included}\n{slack_link}"
             )
         )
-        break
 
-    slack_client.chat_postMessage(channel="<PUT CHANNEL ID HERE>", blocks=blocks)
+    slack_client.chat_postMessage(channel="<CHANNEL ID>", blocks=blocks)
 
 
 if __name__ == "__main__":
