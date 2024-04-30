@@ -106,23 +106,23 @@ def get_paper_text(pdf_url: str) -> str:
     return text
 
 
-# @stub.function(
-#     schedule=modal.Cron("30 15 * * 1-5"),
-#     image=modal.Image.debian_slim().pip_install(
-#         [
-#             "slack-sdk",
-#             "python-dotenv",
-#             "requests",
-#             "emoji",
-#             "openai",
-#             "arxiv",
-#             "pytz",
-#             "bs4",
-#             "PyPDF2",
-#         ]
-#     ),
-#     secret=modal.Secret.from_name("hearth-operations-secrets"),
-# )
+@stub.function(
+    schedule=modal.Cron("30 15 * * 1-5"),
+    image=modal.Image.debian_slim().pip_install(
+        [
+            "slack-sdk",
+            "python-dotenv",
+            "requests",
+            "emoji",
+            "openai",
+            "arxiv",
+            "pytz",
+            "bs4",
+            "PyPDF2",
+        ]
+    ),
+    secret=modal.Secret.from_name("hearth-operations-secrets"),
+)
 def driver():
     client = arxiv.Client()
 
