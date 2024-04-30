@@ -106,30 +106,30 @@ def get_paper_text(pdf_url: str) -> str:
     return text
 
 
-@stub.function(
-    schedule=modal.Cron("30 15 * * 1-5"),
-    image=modal.Image.debian_slim().pip_install(
-        [
-            "slack-sdk",
-            "python-dotenv",
-            "requests",
-            "emoji",
-            "openai",
-            "arxiv",
-            "pytz",
-            "bs4",
-            "PyPDF2",
-        ]
-    ),
-    secret=modal.Secret.from_name("hearth-operations-secrets"),
-)
+# @stub.function(
+#     schedule=modal.Cron("30 15 * * 1-5"),
+#     image=modal.Image.debian_slim().pip_install(
+#         [
+#             "slack-sdk",
+#             "python-dotenv",
+#             "requests",
+#             "emoji",
+#             "openai",
+#             "arxiv",
+#             "pytz",
+#             "bs4",
+#             "PyPDF2",
+#         ]
+#     ),
+#     secret=modal.Secret.from_name("hearth-operations-secrets"),
+# )
 def driver():
     client = arxiv.Client()
 
     search_query = "agents OR llm OR stanford"
 
     search = arxiv.Search(
-        query=search_query, max_results=30, sort_by=arxiv.SortCriterion.SubmittedDate
+        query=search_query, max_results=10, sort_by=arxiv.SortCriterion.SubmittedDate
     )
 
     # `results` is a generator; you can iterate over its elements one by one...
@@ -138,19 +138,19 @@ def driver():
     for r in client.results(search):
         url = r.links[0].href
         paper_text = get_paper_text(url.replace("abs", "pdf"))
-        print(paper_text)
         # url = r.links[0].href.replace("abs", "html")
         # affiliations = get_possible_university_affiliations(url)
         if "cs" not in r.primary_category:
             continue
-        if not is_within_last_24_hours(str(r.published)):
-            continue
+        # if not is_within_last_24_hours(str(r.published)):
+        #     continue
 
         cnt += 1
         print(cnt)
         system_prompt = """You are receiving a computer science arxiv paper summary and its content. You are returning a python array with 3 entries, wrapped in [ ].
         1. Distill the summary into concise 1-2 lines.
-        2. Return the university affiliations of authors from the paper content in user input. You can find this in the beginning before ABSTRACT
+        2. Return the author emails and their university affiliations from the paper content in a ; separated list. You can find this in the beginning before ABSTRACT.
+        Eg: ashe@cs.stanford.edu, Stanford University; josh@harvard.dev, Harvard University
         3. Return keywords
 
         example output:
@@ -173,7 +173,6 @@ def driver():
                 f"*{r.title}*\n_{published}_\n{extracted_data[0]}\n*Keywords: {extracted_data[2]}*\nAffiliations: {extracted_data[1]}\n{stanford_included}\n{slack_link}"
             )
         )
-
     slack_client.chat_postMessage(channel="<CHANNEL ID>", blocks=blocks)
 
 
